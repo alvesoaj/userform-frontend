@@ -1,7 +1,8 @@
 <template>
   <div class="mt-5">
     <b-alert variant="warning" show v-if="showWarning">Please, check all fields before submit!</b-alert>
-    <b-alert variant="success" show v-if="showSucces">Form submitted with success!</b-alert>
+    <b-alert variant="success" show v-if="showSuccess">Form submitted with success!</b-alert>
+    <b-alert variant="danger" show v-if="showError">Something went wrong while trying to sabe the user! Try again!</b-alert>
     <b-form @submit="onSubmit" @reset="onReset">
       <b-form-group id="input-group-1" label="Your Name:" label-for="name">
         <b-form-input id="name" v-model="$v.form.name.$model" :state="validateState('name')" placeholder="Enter your name" aria-describedby="name-feedback"></b-form-input>
@@ -81,6 +82,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import { required, minLength, maxLength, email, numeric, helpers } from "vuelidate/lib/validators";
 
 const mustHaveAtLeastTwoImages = (value) => value.length >= 2;
@@ -98,7 +100,8 @@ export default {
         images: [],
       },
       showWarning: false,
-      showSucces: false,
+      showSuccess: false,
+      showError: false,
     };
   },
   validations: {
@@ -147,7 +150,44 @@ export default {
         this.showWarning = true;
       } else {
         this.showWarning = false;
-        alert(JSON.stringify(this.form));
+        this.showSuccess = false;
+        this.showError = false;
+
+        var formData = new FormData();
+
+        formData.append("name", this.form.name);
+        formData.append("email", this.form.email);
+        formData.append("phone", this.form.phone);
+        formData.append("address", this.form.address);
+        formData.append("zip", this.form.zip);
+        this.form.images.forEach((image) => {
+          formData.append("images[]", image, image.name);
+        });
+
+        axios({
+          method: "post",
+          url: "http://localhost:8000/api/users",
+          data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
+        })
+          .then((response) => {
+            if (response.status === 201) {
+              this.showSuccess = true;
+
+              // Reset our form values
+              this.form.name = "";
+              this.form.email = "";
+              this.form.phone = "";
+              this.form.address = "";
+              this.form.zip = "";
+              this.form.images = [];
+
+              this.$v.$reset();
+            }
+          })
+          .catch((error) => {
+            this.showError = true;
+          });
       }
     },
     onReset(event) {
@@ -163,7 +203,8 @@ export default {
 
       this.$nextTick(() => {
         this.showWarning = false;
-        this.showSucces = false;
+        this.showSuccess = false;
+        this.showError = false;
       });
     },
   },
